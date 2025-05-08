@@ -7,9 +7,9 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #121212; /* Dark background */
+            background-color: #000; /* Dark background */
             padding: 20px;
-            color: #e0e0e0; /* Light text */
+            color: #fff; /* Light text */
             overflow-x: hidden; /* Prevent horizontal scrolling */
             width: 100%;
             box-sizing: border-box;
@@ -17,6 +17,7 @@
         }
         
         h1 {
+            transition: opacity 0.2s ease;
             text-align: center;
             color: #ff7961; /* Lighter red for dark mode */
             margin-bottom: 30px;
@@ -34,7 +35,9 @@
             flex-direction: column;
             gap: 15px;
             margin-bottom: 30px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            will-change: transform, opacity;
+            transform: translateZ(0);
         }
         
         .episode {
@@ -89,7 +92,9 @@
             overflow: visible; /* Allow text to display fully */
             margin-bottom: 10px; /* More space after description */
             opacity: 1; /* Full opacity for better readability */
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+            will-change: transform, opacity;
+            transform: translateZ(0);
             letter-spacing: 0.01em; /* Slightly improved letter spacing */
             font-weight: 400; /* Ensure not too light */
             padding: 8px; /* Add padding */
@@ -152,10 +157,72 @@
             color: #e0e0e0;
             border: 1px solid #555;
             border-radius: 5px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            outline: none;
         }
         
-        .toggle-button:hover {
-            background-color: #444;
+        .series-toggle {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 5px;
+            position: relative;
+            background-color: #1e1e1e;
+            padding: 5px;
+            border-radius: 30px;
+            width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .series-btn {
+            padding: 12px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: transparent;
+            color: #e0e0e0;
+            border: none;
+            border-radius: 25px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            z-index: 1;
+            width: 50%;
+            text-align: center;
+            font-weight: bold;
+            overflow: hidden;
+            outline: none; /* Remove focus outline */
+            -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+            user-select: none; /* Prevent text selection */
+        }
+        
+        .series-btn:hover {
+            color: #fff;
+        }
+        
+        .series-toggle::before {
+            content: '';
+            position: absolute;
+            width: 50%;
+            height: 80%;
+            background-color: #ff7961;
+            border-radius: 25px;
+            left: 3px;
+            top: 10%;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 0;
+            will-change: transform;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+        
+        .series-toggle.shippuden-active::before {
+            transform: translateX(97%);
+        }
+        
+        .series-btn.active {
+            color: #121212;
         }
         
         /* Overall View Specific Styles - keep as grid */
@@ -249,6 +316,7 @@
             }
 
             h1 {
+            transition: opacity 0.2s ease;
                 font-size: 1.5em; /* Smaller heading on mobile */
                 margin-bottom: 20px;
             }
@@ -330,7 +398,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Naruto Episodes Rating</h1>
+        <div class="series-toggle">
+            <button id="naruto-toggle" class="series-btn active">Naruto</button>
+            <button id="shippuden-toggle" class="series-btn">Shippuden</button>
+        </div>
         
         <div class="rating-legend">
             <div class="legend-item">
@@ -399,78 +470,299 @@
             return "type-mixed"; // Mixed Canon/Filler
         }
 
-        // Function to display episodes
+        // Function to display episodes with optimized rendering
         function displayEpisodes(episodes) {
+            // Use document fragment for better performance
+            const fragment = document.createDocumentFragment();
             const grid = document.getElementById('episode-grid');
             grid.innerHTML = ''; // Clear loading message
             
-            episodes.forEach(episode => {
-                const episodeNumber = episode.episode;
-                const ratingValue = parseFloat(episode.rating);
+            // Use batch processing for smoother rendering
+            // Process episodes in chunks to avoid blocking the main thread
+            const processChunk = (start, chunkSize) => {
+                // Process only a chunk of episodes at a time
+                const end = Math.min(start + chunkSize, episodes.length);
                 
-                const episodeEl = document.createElement('div');
-                episodeEl.className = 'episode';
-                const bgColor = getRatingColor(ratingValue);
-                episodeEl.style.backgroundColor = bgColor;
+                for (let i = start; i < end; i++) {
+                    const episode = episodes[i];
+                    const episodeNumber = episode.episode;
+                    const ratingValue = parseFloat(episode.rating);
+                    
+                    const episodeEl = document.createElement('div');
+                    episodeEl.className = 'episode';
+                    const bgColor = getRatingColor(ratingValue);
+                    episodeEl.style.backgroundColor = bgColor;
+                    
+                    // Set hardware acceleration properties
+                    episodeEl.style.transform = 'translateZ(0)';
+                    episodeEl.style.willChange = 'transform, opacity';
+                    
+                    // Adjust text color based on background for better contrast
+                    const textColor = (ratingValue >= 8.0 && ratingValue < 8.5) ? '#111' : '#fff';
+                    episodeEl.style.color = textColor;
+                    
+                    // Add type indicator
+                    const typeIndicator = document.createElement('div');
+                    typeIndicator.className = `episode-type ${getTypeClass(episode.type)}`;
+                    episodeEl.appendChild(typeIndicator);
+                    
+                    episodeEl.innerHTML += `
+                        <div class="ep-header">
+                            <div class="ep-number">${episodeNumber}</div>
+                            <div class="ep-title">${episode.title}</div>
+                        </div>
+                        <div class="ep-date">${episode.air_date}</div>
+                        <div class="ep-description">${episode.description}</div>
+                        <div class="ep-rating">Rating: ${ratingValue.toFixed(1)} (${episode.votes})</div>
+                    `;
+                    
+                    fragment.appendChild(episodeEl);
+                }
                 
-                // Adjust text color based on background for better contrast
-                const textColor = (ratingValue >= 8.0 && ratingValue < 8.5) ? '#111' : '#fff';
-                episodeEl.style.color = textColor;
+                // If we've processed all episodes, append the fragment to the grid
+                if (end === episodes.length) {
+                    grid.appendChild(fragment);
+                    return;
+                }
                 
-                // Add type indicator
-                const typeIndicator = document.createElement('div');
-                typeIndicator.className = `episode-type ${getTypeClass(episode.type)}`;
-                episodeEl.appendChild(typeIndicator);
-                
-                episodeEl.innerHTML += `
-                    <div class="ep-header">
-                        <div class="ep-number">${episodeNumber}</div>
-                        <div class="ep-title">${episode.title}</div>
-                    </div>
-                    <div class="ep-date">${episode.air_date}</div>
-                    <div class="ep-description">${episode.description}</div>
-                    <div class="ep-rating">Rating: ${ratingValue.toFixed(1)} (${episode.votes})</div>
-                `;
-                
-                grid.appendChild(episodeEl);
+                // Otherwise, schedule the next chunk
+                requestAnimationFrame(() => {
+                    processChunk(end, chunkSize);
+                });
+            };
+            
+            // Start processing with a reasonable chunk size
+            requestAnimationFrame(() => {
+                processChunk(0, 20); // Process 20 episodes at a time
             });
         }
 
+        // Cache for episode data to avoid multiple fetches
+        const episodeCache = {
+            naruto: null,
+            shippuden: null
+        };
+        
+        // Function to load episodes based on series selection with improved transitions
+        function loadEpisodes(series = 'naruto') {
+            const filename = series === 'naruto' ? 'naruto_episodes.json' : 'naruto_shippuden_episodes.json';
+            
+            // Use requestAnimationFrame for smoother animation
+            requestAnimationFrame(() => {
+                // Fade out the current episodes
+                const grid = document.getElementById('episode-grid');
+                grid.style.opacity = '0';
+                grid.style.transform = 'translateY(10px)';
+                
+                // Shorter transition time and use requestAnimationFrame for next frame
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        // If we have cached data, prepare it in memory before touching the DOM
+                        if (episodeCache[series]) {
+                            // Create document fragment for better performance
+                            const fragment = document.createDocumentFragment();
+                            const episodes = episodeCache[series];
+                            
+                            // Clear the grid but keep its properties
+                            grid.innerHTML = '';
+                            
+                            episodes.forEach(episode => {
+                                const episodeNumber = episode.episode;
+                                const ratingValue = parseFloat(episode.rating);
+                                
+                                const episodeEl = document.createElement('div');
+                                episodeEl.className = 'episode';
+                                const bgColor = getRatingColor(ratingValue);
+                                episodeEl.style.backgroundColor = bgColor;
+                                
+                                // Adjust text color for better contrast
+                                const textColor = (ratingValue >= 8.0 && ratingValue < 8.5) ? '#111' : '#fff';
+                                episodeEl.style.color = textColor;
+                                
+                                // Add type indicator
+                                const typeIndicator = document.createElement('div');
+                                typeIndicator.className = `episode-type ${getTypeClass(episode.type)}`;
+                                episodeEl.appendChild(typeIndicator);
+                                
+                                episodeEl.innerHTML += `
+                                    <div class="ep-header">
+                                        <div class="ep-number">${episodeNumber}</div>
+                                        <div class="ep-title">${episode.title}</div>
+                                    </div>
+                                    <div class="ep-date">${episode.air_date}</div>
+                                    <div class="ep-description">${episode.description}</div>
+                                    <div class="ep-rating">Rating: ${ratingValue.toFixed(1)} (${episode.votes})</div>
+                                `;
+                                
+                                fragment.appendChild(episodeEl);
+                            });
+                            
+                            // Apply changes to DOM in a single operation for better performance
+                            grid.appendChild(fragment);
+                            
+                            // Use requestAnimationFrame for smoother rendering
+                            requestAnimationFrame(() => {
+                                grid.style.opacity = '1';
+                                grid.style.transform = 'translateY(0)';
+                            });
+                            return;
+                        }
+                        
+                        // Show loading indicator if we don't have cached data
+                        if (!episodeCache[series]) {
+                            grid.innerHTML = '<div class="loading">Loading episodes...</div>';
+                            grid.style.opacity = '1';
+                            grid.style.transform = 'translateY(0)';
+                        }
+                        
+                        // Fetch the data if not cached
+                        fetch(filename)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                // Cache the data for future use
+                                episodeCache[series] = data;
+                                
+                                // Create document fragment
+                                const fragment = document.createDocumentFragment();
+                                
+                                // Clear the grid but keep its properties
+                                grid.innerHTML = '';
+                                
+                                data.forEach(episode => {
+                                    const episodeNumber = episode.episode;
+                                    const ratingValue = parseFloat(episode.rating);
+                                    
+                                    const episodeEl = document.createElement('div');
+                                    episodeEl.className = 'episode';
+                                    const bgColor = getRatingColor(ratingValue);
+                                    episodeEl.style.backgroundColor = bgColor;
+                                    
+                                    // Adjust text color for better contrast
+                                    const textColor = (ratingValue >= 8.0 && ratingValue < 8.5) ? '#111' : '#fff';
+                                    episodeEl.style.color = textColor;
+                                    
+                                    // Add type indicator
+                                    const typeIndicator = document.createElement('div');
+                                    typeIndicator.className = `episode-type ${getTypeClass(episode.type)}`;
+                                    episodeEl.appendChild(typeIndicator);
+                                    
+                                    episodeEl.innerHTML += `
+                                        <div class="ep-header">
+                                            <div class="ep-number">${episodeNumber}</div>
+                                            <div class="ep-title">${episode.title}</div>
+                                        </div>
+                                        <div class="ep-date">${episode.air_date}</div>
+                                        <div class="ep-description">${episode.description}</div>
+                                        <div class="ep-rating">Rating: ${ratingValue.toFixed(1)} (${episode.votes})</div>
+                                    `;
+                                    
+                                    fragment.appendChild(episodeEl);
+                                });
+                                
+                                // Apply changes to DOM in a single operation
+                                grid.appendChild(fragment);
+                                
+                                // Use requestAnimationFrame for smoother fade in
+                                requestAnimationFrame(() => {
+                                    grid.style.opacity = '1';
+                                    grid.style.transform = 'translateY(0)';
+                                });
+                            })
+                            .catch(error => {
+                                console.error(`Error loading ${series} episode data:`, error);
+                                grid.innerHTML = '<div class="loading">Error loading episodes. Please try again later.</div>';
+                                grid.style.opacity = '1';
+                                grid.style.transform = 'translateY(0)';
+                            });
+                    }, 150); // Shorter delay for better responsiveness
+                });
+            });
+        }
+        
+        // Series toggle functionality with improved transitions
+        const narutoToggle = document.getElementById('naruto-toggle');
+        const shippudenToggle = document.getElementById('shippuden-toggle');
+        
+        narutoToggle.addEventListener('click', () => {
+            if (!narutoToggle.classList.contains('active')) {
+                // Smooth button state transition
+                narutoToggle.classList.add('active');
+                shippudenToggle.classList.remove('active');
+                document.querySelector('.series-toggle').classList.remove('shippuden-active');
+                
+                // Use requestAnimationFrame for smoother performance
+                requestAnimationFrame(() => {
+                    loadEpisodes('naruto');
+                });
+            }
+        });
+        
+        shippudenToggle.addEventListener('click', () => {
+            if (!shippudenToggle.classList.contains('active')) {
+                // Smooth button state transition
+                shippudenToggle.classList.add('active');
+                narutoToggle.classList.remove('active');
+                document.querySelector('.series-toggle').classList.add('shippuden-active');
+                
+                // Use requestAnimationFrame for smoother performance
+                requestAnimationFrame(() => {
+                    loadEpisodes('shippuden');
+                });
+            }
+        });
+        
+        // Preload both datasets for instant switching after initial load
+        function preloadData() {
+            // Preload Shippuden data in the background after Naruto data is loaded
+            setTimeout(() => {
+                if (!episodeCache.shippuden) {
+                    fetch('naruto_shippuden_episodes.json')
+                        .then(response => response.json())
+                        .then(data => {
+                            episodeCache.shippuden = data;
+                            console.log('Shippuden data preloaded');
+                        })
+                        .catch(error => console.error('Error preloading Shippuden data:', error));
+                }
+            }, 1000); // Delay preloading to prioritize initial view
+        }
+        
         // Toggle View Logic with improved transition
         const toggleButton = document.getElementById('toggle-view');
         const episodeGrid = document.getElementById('episode-grid');
-
+        
         toggleButton.addEventListener('click', () => {
-            // Use requestAnimationFrame for smoother transitions
+            // Fade out before changing layout
+            episodeGrid.style.opacity = '0.4';
+            
+            // Use multiple requestAnimationFrame calls for smoother transitions
             requestAnimationFrame(() => {
-                episodeGrid.classList.toggle('overall-view');
-                
-                // Update button text based on the current view
-                if (episodeGrid.classList.contains('overall-view')) {
-                    toggleButton.textContent = 'Show Expanded View';
-                } else {
-                    toggleButton.textContent = 'Show Grid Overview';
-                }
+                requestAnimationFrame(() => {
+                    // Update button text based on the next view state
+                    const willBeGrid = !episodeGrid.classList.contains('overall-view');
+                    toggleButton.textContent = willBeGrid ? 'Show Expanded View' : 'Show Grid Overview';
+                    
+                    // Toggle the class after a slight delay for smoother transition
+                    setTimeout(() => {
+                        episodeGrid.classList.toggle('overall-view');
+                        
+                        // Fade back in after changing layout
+                        requestAnimationFrame(() => {
+                            episodeGrid.style.opacity = '1';
+                        });
+                    }, 50);
+                });
             });
         });
 
-        // Fetch episodes from JSON file
-        fetch('naruto_episodes.json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Display all episodes
-                displayEpisodes(data);
-            })
-            .catch(error => {
-                console.error('Error loading episode data:', error);
-                document.getElementById('episode-grid').innerHTML = 
-                    '<div class="loading">Error loading episodes. Please try again later.</div>';
-            });
+        // Load Naruto episodes by default on page load and preload Shippuden data
+        loadEpisodes('naruto');
+        preloadData();
 
         // Update the toggle button text initialization
         document.addEventListener('DOMContentLoaded', function() {
